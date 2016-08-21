@@ -6,6 +6,8 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -17,6 +19,7 @@ public class Client extends Pipe {
     public static final UUID MY_UUID = UUID.fromString("cad38610-c72f-438b-935d-c6bbe90a5a33");
 
     private ConnectThread connThread = null;
+    private boolean isBoth;
 
     public Client(Context context) {
         super(context);
@@ -72,6 +75,9 @@ public class Client extends Pipe {
                 }
             });
             openPipe(mSocket);
+            Map<String, String> params = new HashMap<>();
+            params.put("both", isBoth ? "1" : "0");
+            send(Message.create(Message.TYPE_INIT, params));
         }
 
         public void cancel(){
@@ -88,6 +94,10 @@ public class Client extends Pipe {
             connThread.cancel();
             connThread = null;
         }
+    }
+
+    public void setBoth(boolean both) {
+        this.isBoth = both;
     }
 
 }

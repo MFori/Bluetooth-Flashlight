@@ -18,17 +18,23 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:gravity="center"
             android:text="Choose device"
-            android:textSize="40sp"
-            android:gravity="center"/>
+            android:textSize="40sp" />
 
     </FrameLayout>
 
     <LinearLayout
-        android:layout_width="match_parent"
         android:id="@+id/default_layout"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
+
+        <android.support.v7.widget.SwitchCompat
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/switchBoth"
+            android:layout_gravity="center" />
 
         <FrameLayout
             android:layout_width="match_parent"
@@ -48,41 +54,41 @@
             android:padding="10dp">
 
             <Button
+                android:id="@+id/search"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:id="@+id/search"
-                android:visibility="invisible"
-                android:text="Search"
                 android:layout_centerInParent="true"
-                android:onClick="search"/>
+                android:onClick="search"
+                android:text="Search"
+                android:visibility="invisible" />
 
             <ProgressBar
+                android:id="@+id/loading"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                android:id="@+id/loading"/>
+                android:layout_centerInParent="true" />
 
         </RelativeLayout>
 
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/connect_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/connect_layout"
         android:visibility="gone">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Connecting"/>
+            android:text="Connecting" />
 
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/control_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/control_layout"
         android:visibility="gone">
 
         <Button
@@ -90,6 +96,19 @@
             android:layout_height="wrap_content"
             android:onClick="send1"
             android:text="send1" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/control_me_layout"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CONTROLL ME"/>
 
     </LinearLayout>
 

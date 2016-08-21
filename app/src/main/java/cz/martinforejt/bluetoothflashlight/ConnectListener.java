@@ -9,4 +9,7 @@ import android.bluetooth.BluetoothDevice;
 public interface ConnectListener {
     void onFailure(BluetoothDevice serverDevice);
     void onSuccess(BluetoothDevice serverDevice);
+    void onClientRequest(BluetoothDevice clientDevice, boolean both);
+    void onCloseConnection();
+    void onLight(int lightType);
 }

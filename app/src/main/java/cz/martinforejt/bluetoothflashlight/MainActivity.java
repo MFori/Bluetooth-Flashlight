@@ -5,10 +5,14 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.hardware.Camera;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.SwitchCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
@@ -18,7 +22,6 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -28,6 +31,7 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     private static final int REQUEST_ENABLE_BT = 666;
     private BluetoothAdapter mBluetoothAdapter = null;
     private BTReceiver mReceiver = new BTReceiver(this);
+    private FlashManager flashManager;
 
     private Server server = null;
     private Client client = null;
@@ -37,15 +41,14 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     private ListView devicesList;
     private ProgressBar loading;
     private Button search;
+    private SwitchCompat switchBoth;
+    private Button send;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        loading = (ProgressBar) findViewById(R.id.loading);
-        loading.getIndeterminateDrawable().setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN);
-        search = (Button) findViewById(R.id.search);
         layouts();
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -79,6 +82,8 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         }
         devicesList.setAdapter(adapter);
         devicesList.setOnItemClickListener(this);
+
+        flashManager = new FlashManager(this);
     }
 
     @Override
@@ -102,6 +107,7 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     public void server() {
         server = new Server(this);
         server.listenSocket();
+        server.setConnectListener(this);
     }
 
     /**
@@ -116,6 +122,7 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
 
         client = new Client(this);
         client.setConnectListener(this);
+        client.setBoth(switchBoth.isChecked());
         client.connect(device);
 
         connectDeviceLayout(device.getName());
@@ -127,15 +134,16 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     }
 
     public void send1(View v) {
-        if (server != null) {
-            server.send("Zpráva jedna");
-        } else if (client != null) {
-            client.send("Zpráva jedna");
+        if (client != null) {
+            client.send(Message.create(Message.TYPE_LIGHT));
+        } else if (server != null) {
+            server.send(Message.create(Message.TYPE_LIGHT));
         }
     }
 
     /**
      * Search button clicked - start discovery devices
+     *
      * @param v View
      */
     public void search(View v) {
@@ -144,18 +152,25 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         search.setVisibility(View.INVISIBLE);
     }
 
-    private LinearLayout defaultLayout, connectLayout, controlLayout;
+    private LinearLayout defaultLayout, connectLayout, controlLayout, controlMeLayout;
 
-    private void layouts(){
-        defaultLayout = (LinearLayout)findViewById(R.id.default_layout);
-        connectLayout = (LinearLayout)findViewById(R.id.connect_layout);
-        controlLayout = (LinearLayout)findViewById(R.id.control_layout);
+    private void layouts() {
+        defaultLayout = (LinearLayout) findViewById(R.id.default_layout);
+        connectLayout = (LinearLayout) findViewById(R.id.connect_layout);
+        controlLayout = (LinearLayout) findViewById(R.id.control_layout);
+        controlMeLayout = (LinearLayout) findViewById(R.id.control_me_layout);
+
+        loading = (ProgressBar) findViewById(R.id.loading);
+        loading.getIndeterminateDrawable().setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN);
+        search = (Button) findViewById(R.id.search);
+        switchBoth = (SwitchCompat) findViewById(R.id.switchBoth);
     }
 
     private void connectDeviceLayout(String deviceName) {
         defaultLayout.setVisibility(View.GONE);
         connectLayout.setVisibility(View.VISIBLE);
         controlLayout.setVisibility(View.GONE);
+        controlMeLayout.setVisibility(View.GONE);
     }
 
     private void defaultLayout() {
@@ -166,12 +181,21 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         devicesList.setVisibility(View.VISIBLE);
         search.setVisibility(View.VISIBLE);
         loading.setVisibility(View.INVISIBLE);
+        controlMeLayout.setVisibility(View.GONE);
     }
 
     private void controlDeviceLayout() {
         defaultLayout.setVisibility(View.GONE);
         connectLayout.setVisibility(View.GONE);
         controlLayout.setVisibility(View.VISIBLE);
+        controlMeLayout.setVisibility(View.GONE);
+    }
+
+    private void controlMeLayout() {
+        defaultLayout.setVisibility(View.GONE);
+        connectLayout.setVisibility(View.GONE);
+        controlLayout.setVisibility(View.GONE);
+        controlMeLayout.setVisibility(View.VISIBLE);
     }
 
     /**
@@ -197,11 +221,44 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     @Override
     public void onFailure(BluetoothDevice serverDevice) {
         defaultLayout();
+        server();
     }
 
     @Override
     public void onSuccess(BluetoothDevice serverDevice) {
         controlDeviceLayout();
+    }
+
+    @Override
+    public void onClientRequest(BluetoothDevice clientDevice, boolean both) {
+        if (both) {
+            controlDeviceLayout();
+        } else {
+            controlMeLayout();
+        }
+    }
+
+    @Override
+    public void onCloseConnection() {
+        if (server != null) server.cancel();
+        else if (client != null) client.cancel();
+        server();
+        defaultLayout();
+    }
+
+    @Override
+    public void onLight(int type) {
+        flashManager.flash(!flashManager.isFlashOn);
+        /*if(!flashManager.hasFlash()) return;
+        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            Camera camera = Camera.open();
+            Camera.Parameters p = camera.getParameters();
+            p.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
+            camera.setParameters(p);
+            camera.startPreview();
+        } else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+
+        }*/
     }
 
     @Override
@@ -220,6 +277,13 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
                 // TODO cant start
                 Log.d("BTAdapter", "Cant enable BT");
             }
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (defaultLayout.getVisibility() != View.VISIBLE) {
+            onCloseConnection();
         }
     }
 
