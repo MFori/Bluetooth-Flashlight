@@ -3,7 +3,6 @@ package cz.martinforejt.bluetoothflashlight;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.util.Log;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,10 +16,16 @@ abstract class Pipe {
     protected ConnectListener connectListener = null;
     protected Context context;
 
+    /**
+     * @param context Context
+     */
     public Pipe(Context context){
         this.context = context;
     }
 
+    /**
+     * @param socket BluetoothSocket
+     */
     public void openPipe(BluetoothSocket socket) {
         if(connectedThread != null) connectedThread.cancel();
         connectedThread = new ConnectedThread(socket);
@@ -83,7 +88,7 @@ abstract class Pipe {
                 } catch (IOException e) {
                     e.printStackTrace();
                     Log.d("INPUT", "NO");
-                    //break;
+                    break;
                 }
             }
         }
@@ -91,13 +96,17 @@ abstract class Pipe {
         public void write(byte[] bytes) {
             try{
                 mOutStream.write(bytes);
-            } catch (IOException e){}
+            } catch (IOException e){
+                e.printStackTrace();
+            }
         }
 
         public void cancel(){
             try{
                 mSocket.close();
-            } catch (IOException e){}
+            } catch (IOException e){
+                e.printStackTrace();
+            }
         }
     }
 

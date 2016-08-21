@@ -8,4 +8,5 @@ import android.bluetooth.BluetoothDevice;
  */
 public interface BTFinder {
     void newDevice(BluetoothDevice device);
+    void finished();
 }

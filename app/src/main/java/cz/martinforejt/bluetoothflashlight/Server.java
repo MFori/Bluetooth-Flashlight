@@ -4,7 +4,6 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
-
 import java.util.UUID;
 
 /**
@@ -59,13 +58,6 @@ public class Server extends Pipe {
 
                 if (socket != null) {
                     openPipe(socket);
-                    /*new android.os.Handler().postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            send("KOKOTE");
-                        }
-                    }, 3000);*/
-
                     try {
                         mServerSocket.close();
                     } catch (Exception e) {
@@ -89,8 +81,8 @@ public class Server extends Pipe {
 
     }
 
-    public void stop(){
-        if(accThread != null) {
+    public void stop() {
+        if (accThread != null) {
             accThread.cancel();
             accThread = null;
         }

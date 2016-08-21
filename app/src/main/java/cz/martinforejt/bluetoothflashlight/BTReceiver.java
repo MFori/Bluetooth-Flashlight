@@ -28,6 +28,7 @@ public class BTReceiver extends BroadcastReceiver {
                 break;
             case BluetoothAdapter.ACTION_DISCOVERY_FINISHED:
                 Log.d("BTReceiver", "DISCOVERY FINISHED");
+                finder.finished();
                 break;
             case BluetoothDevice.ACTION_FOUND:
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
