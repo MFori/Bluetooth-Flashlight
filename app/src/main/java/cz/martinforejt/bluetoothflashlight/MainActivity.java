@@ -5,12 +5,18 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -23,18 +29,24 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     private BluetoothAdapter mBluetoothAdapter = null;
     private BTReceiver mReceiver = new BTReceiver(this);
 
-    private ListView devicesList;
-    Server server = null;
-    Client client = null;
-
+    private Server server = null;
+    private Client client = null;
     private List<BluetoothDevice> devices;
-    ArrayAdapter<String> adapter;
-    BluetoothDevice d;
+    private ArrayAdapter<String> adapter;
+
+    private ListView devicesList;
+    private ProgressBar loading;
+    private Button search;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        loading = (ProgressBar) findViewById(R.id.loading);
+        loading.getIndeterminateDrawable().setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN);
+        search = (Button) findViewById(R.id.search);
+        layouts();
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter == null) {
@@ -44,13 +56,15 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         }
 
         registerReceiver();
-        makeDeviceDiscoverable();
+        if (mBluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE)
+            makeDeviceDiscoverable();
         if (!mBluetoothAdapter.isEnabled()) {
             Intent enaBt = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enaBt, REQUEST_ENABLE_BT);
         } else {
             server();
             mBluetoothAdapter.startDiscovery();
+            loading.setVisibility(View.VISIBLE);
         }
 
         devicesList = (ListView) findViewById(R.id.devices_list);
@@ -67,18 +81,34 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         devicesList.setOnItemClickListener(this);
     }
 
+    @Override
     public void newDevice(BluetoothDevice device) {
         if (!devices.contains(device)) {
             devices.add(device);
             adapter.add(device.getName());
+            devicesList.setSelection(adapter.getCount() - 1);
         }
     }
 
+    @Override
+    public void finished() {
+        loading.setVisibility(View.INVISIBLE);
+        search.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * Start server thread and listen for clients
+     */
     public void server() {
         server = new Server(this);
         server.listenSocket();
     }
 
+    /**
+     * Try to connect to server device as client
+     *
+     * @param device BluetoothDevice - server
+     */
     public void client(BluetoothDevice device) {
         if (client != null) {
             client.stop();
@@ -87,6 +117,8 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         client = new Client(this);
         client.setConnectListener(this);
         client.connect(device);
+
+        connectDeviceLayout(device.getName());
 
         if (server != null) {
             server.stop();
@@ -100,6 +132,46 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         } else if (client != null) {
             client.send("Zpráva jedna");
         }
+    }
+
+    /**
+     * Search button clicked - start discovery devices
+     * @param v View
+     */
+    public void search(View v) {
+        mBluetoothAdapter.startDiscovery();
+        loading.setVisibility(View.VISIBLE);
+        search.setVisibility(View.INVISIBLE);
+    }
+
+    private LinearLayout defaultLayout, connectLayout, controlLayout;
+
+    private void layouts(){
+        defaultLayout = (LinearLayout)findViewById(R.id.default_layout);
+        connectLayout = (LinearLayout)findViewById(R.id.connect_layout);
+        controlLayout = (LinearLayout)findViewById(R.id.control_layout);
+    }
+
+    private void connectDeviceLayout(String deviceName) {
+        defaultLayout.setVisibility(View.GONE);
+        connectLayout.setVisibility(View.VISIBLE);
+        controlLayout.setVisibility(View.GONE);
+    }
+
+    private void defaultLayout() {
+        defaultLayout.setVisibility(View.VISIBLE);
+        connectLayout.setVisibility(View.GONE);
+        controlLayout.setVisibility(View.GONE);
+
+        devicesList.setVisibility(View.VISIBLE);
+        search.setVisibility(View.VISIBLE);
+        loading.setVisibility(View.INVISIBLE);
+    }
+
+    private void controlDeviceLayout() {
+        defaultLayout.setVisibility(View.GONE);
+        connectLayout.setVisibility(View.GONE);
+        controlLayout.setVisibility(View.VISIBLE);
     }
 
     /**
@@ -124,12 +196,12 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
 
     @Override
     public void onFailure(BluetoothDevice serverDevice) {
-        Toast.makeText(MainActivity.this, "NEPODAŘILO", Toast.LENGTH_LONG).show();
+        defaultLayout();
     }
 
     @Override
     public void onSuccess(BluetoothDevice serverDevice) {
-        Toast.makeText(MainActivity.this, "PODAŘILO", Toast.LENGTH_LONG).show();
+        controlDeviceLayout();
     }
 
     @Override
@@ -146,7 +218,7 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
                 mBluetoothAdapter.startDiscovery();
             } else {
                 // TODO cant start
-                Toast.makeText(MainActivity.this, "NE", Toast.LENGTH_LONG).show();
+                Log.d("BTAdapter", "Cant enable BT");
             }
         }
     }
