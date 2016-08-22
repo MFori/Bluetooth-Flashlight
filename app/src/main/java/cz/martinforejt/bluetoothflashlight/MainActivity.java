@@ -21,7 +21,9 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class MainActivity extends AppCompatActivity implements BTFinder, AdapterView.OnItemClickListener, ConnectListener {
@@ -122,7 +124,6 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
 
         client = new Client(this);
         client.setConnectListener(this);
-        client.setBoth(switchBoth.isChecked());
         client.connect(device);
 
         connectDeviceLayout(device.getName());
@@ -184,11 +185,15 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         controlMeLayout.setVisibility(View.GONE);
     }
 
-    private void controlDeviceLayout() {
+    private void controlDeviceLayout(boolean hasFlash) {
         defaultLayout.setVisibility(View.GONE);
         connectLayout.setVisibility(View.GONE);
         controlLayout.setVisibility(View.VISIBLE);
         controlMeLayout.setVisibility(View.GONE);
+
+        if(!hasFlash) {
+            Toast.makeText(this, "Connected device doesn't has flash light", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void controlMeLayout() {
@@ -220,28 +225,44 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
 
     @Override
     public void onFailure(BluetoothDevice serverDevice) {
+        Toast.makeText(this, "Can't connect to " + serverDevice.getName(), Toast.LENGTH_LONG).show();
         defaultLayout();
         server();
     }
 
     @Override
     public void onSuccess(BluetoothDevice serverDevice) {
-        controlDeviceLayout();
+        Map<String, String> params = new HashMap<>();
+        params.put("both", switchBoth.isChecked() ? "1" : "0");
+        params.put("has_flash", flashManager.hasFlash() ? "1" : "0");
+        client.send(Message.create(Message.TYPE_INIT, params));
     }
 
     @Override
-    public void onClientRequest(BluetoothDevice clientDevice, boolean both) {
+    public void onClientRequest(BluetoothDevice clientDevice, boolean both, boolean hasFlash) {
+        Map<String, String> params = new HashMap<>();
+        params.put("has_flash", flashManager.hasFlash() ? "1" : "0");
+        server.send(Message.create(Message.TYPE_ACCEPT, params));
+
         if (both) {
-            controlDeviceLayout();
+            controlDeviceLayout(hasFlash);
         } else {
             controlMeLayout();
         }
     }
 
     @Override
+    public void onServerAccept(BluetoothDevice serverDevice, boolean hasFlash) {
+        Log.d("Server:", "Accepted: " + serverDevice.getName());
+        Log.d("Server:", "flash: " + String.valueOf(hasFlash));
+        controlDeviceLayout(hasFlash);
+    }
+
+    @Override
     public void onCloseConnection() {
         if (server != null) server.cancel();
         else if (client != null) client.cancel();
+        flashManager.flash(false);
         server();
         defaultLayout();
     }
@@ -278,7 +299,14 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     }
 
     @Override
+    public void onStop(){
+        super.onStop();
+    }
+
+    @Override
     public void onDestroy() {
+        mBluetoothAdapter.startDiscovery();
+        onCloseConnection();
         if (mBluetoothAdapter != null) unregisterReceiver(mReceiver);
         super.onDestroy();
     }
