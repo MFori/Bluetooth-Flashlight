@@ -5,11 +5,8 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
-import android.hardware.Camera;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.SwitchCompat;
@@ -22,6 +19,7 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -42,7 +40,6 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     private ProgressBar loading;
     private Button search;
     private SwitchCompat switchBoth;
-    private Button send;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,8 +50,7 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter == null) {
-            // TODO NO ADAPTER
-            Toast.makeText(MainActivity.this, "NO BLUETOOTH", Toast.LENGTH_LONG).show();
+            AlertHelper.Create(this, "Error", "Sorry, your device doesn't support flash light!", "OK", true).show();
             return;
         }
 
@@ -73,13 +69,7 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         devicesList = (ListView) findViewById(R.id.devices_list);
         devices = new ArrayList<>();
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
-        Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
-        if (pairedDevices.size() > 0) {
-            for (BluetoothDevice device : pairedDevices) {
-                devices.add(device);
-                adapter.add(device.getName());
-            }
-        }
+        findPairedDevices();
         devicesList.setAdapter(adapter);
         devicesList.setOnItemClickListener(this);
 
@@ -99,6 +89,16 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     public void finished() {
         loading.setVisibility(View.INVISIBLE);
         search.setVisibility(View.VISIBLE);
+    }
+
+    private void findPairedDevices() {
+        Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+        if (pairedDevices.size() > 0) {
+            for (BluetoothDevice device : pairedDevices) {
+                devices.add(device);
+                adapter.add(device.getName());
+            }
+        }
     }
 
     /**
@@ -249,16 +249,6 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     @Override
     public void onLight(int type) {
         flashManager.flash(!flashManager.isFlashOn);
-        /*if(!flashManager.hasFlash()) return;
-        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            Camera camera = Camera.open();
-            Camera.Parameters p = camera.getParameters();
-            p.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
-            camera.setParameters(p);
-            camera.startPreview();
-        } else if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-
-        }*/
     }
 
     @Override
@@ -273,8 +263,8 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         if (requestCode == REQUEST_ENABLE_BT) {
             if (resultCode == Activity.RESULT_OK) {
                 mBluetoothAdapter.startDiscovery();
+                findPairedDevices();
             } else {
-                // TODO cant start
                 Log.d("BTAdapter", "Cant enable BT");
             }
         }
@@ -289,7 +279,7 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
 
     @Override
     public void onDestroy() {
-        unregisterReceiver(mReceiver);
+        if (mBluetoothAdapter != null) unregisterReceiver(mReceiver);
         super.onDestroy();
     }
 }
