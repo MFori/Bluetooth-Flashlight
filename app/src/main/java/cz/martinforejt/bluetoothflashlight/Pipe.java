@@ -37,7 +37,7 @@ abstract class Pipe {
         if (connectedThread != null) connectedThread.cancel();
         connectedThread = new ConnectedThread(socket);
         connectedThread.start();
-        send("");
+        //send("");
     }
 
     /**
@@ -57,8 +57,10 @@ abstract class Pipe {
     }
 
     public void cancel() {
-        send(Message.create(Message.TYPE_END));
-        connectedThread.cancel();
+        if(connectedThread != null) {
+            send(Message.create(Message.TYPE_END));
+            connectedThread.cancel();
+        }
     }
 
     private class ConnectedThread extends Thread {
@@ -123,15 +125,19 @@ abstract class Pipe {
                     msgInit(json);
                     break;
                 case Message.TYPE_END:
-                    ((Activity) context).runOnUiThread(new Runnable() {
+                    connectListener.onCloseConnection();
+                    /*((Activity) context).runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
                             connectListener.onCloseConnection();
                         }
-                    });
+                    });*/
                     break;
                 case Message.TYPE_LIGHT:
                     msgLight(json);
+                    break;
+                case Message.TYPE_ACCEPT:
+                    msgAccept(json);
                     break;
             }
         } catch (JSONException e) {
@@ -143,23 +149,54 @@ abstract class Pipe {
      * @param msg JSONObject
      */
     private void msgInit(final JSONObject msg) {
-        ((Activity) context).runOnUiThread(new Runnable() {
+        try {
+            connectListener.onClientRequest(connectedDevice, msg.get("both").equals("1"), msg.get("has_flash").equals("1"));
+        } catch (JSONException e) {
+            connectListener.onClientRequest(connectedDevice, false, true);
+        }
+        /*((Activity) context).runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    connectListener.onClientRequest(connectedDevice, msg.get("both").equals("1"));
+                    connectListener.onClientRequest(connectedDevice, msg.get("both").equals("1"), msg.get("has_flash").equals("1"));
                 } catch (JSONException e) {
-                    connectListener.onClientRequest(connectedDevice, false);
+                    connectListener.onClientRequest(connectedDevice, false, true);
                 }
             }
-        });
+        });*/
+    }
+
+    /**
+     * @param msg JSONObject
+     */
+    private void msgAccept(final JSONObject msg) {
+        try {
+            connectListener.onServerAccept(connectedDevice, msg.get("has_flash").equals("1"));
+        } catch (JSONException e) {
+            connectListener.onServerAccept(connectedDevice, true);
+        }
+        /*((Activity) context).runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    connectListener.onServerAccept(connectedDevice, msg.get("has_flash").equals("1"));
+                } catch (JSONException e) {
+                    connectListener.onServerAccept(connectedDevice, true);
+                }
+            }
+        });*/
     }
 
     /**
      * @param msg JSONObject
      */
     private void msgLight(final JSONObject msg) {
-        ((Activity) context).runOnUiThread(new Runnable() {
+        try {
+            connectListener.onLight(msg.getInt("light_type"));
+        } catch (JSONException e) {
+            connectListener.onLight(Message.LIGHT_01);
+        }
+        /*((Activity) context).runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 try {
@@ -168,7 +205,7 @@ abstract class Pipe {
                     connectListener.onLight(Message.LIGHT_01);
                 }
             }
-        });
+        });*/
     }
 
 }

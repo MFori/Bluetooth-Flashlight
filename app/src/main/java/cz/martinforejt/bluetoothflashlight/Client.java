@@ -19,7 +19,6 @@ public class Client extends Pipe {
     public static final UUID MY_UUID = UUID.fromString("cad38610-c72f-438b-935d-c6bbe90a5a33");
 
     private ConnectThread connThread = null;
-    private boolean isBoth;
 
     public Client(Context context) {
         super(context);
@@ -54,12 +53,13 @@ public class Client extends Pipe {
             try {
                 mSocket.connect();
             } catch (IOException connectException){
-                ((Activity) context).runOnUiThread(new Runnable() {
+                connectListener.onFailure(mDevice);
+                /*((Activity) context).runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         connectListener.onFailure(mDevice);
                     }
-                });
+                });*/
                 try{
                     mSocket.close();
                 } catch (IOException closeException){
@@ -68,16 +68,15 @@ public class Client extends Pipe {
                 return;
             }
 
-            ((Activity) context).runOnUiThread(new Runnable() {
+            connectedDevice = mSocket.getRemoteDevice();
+            openPipe(mSocket);
+            connectListener.onSuccess(mDevice);
+            /*((Activity) context).runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     connectListener.onSuccess(mDevice);
                 }
-            });
-            openPipe(mSocket);
-            Map<String, String> params = new HashMap<>();
-            params.put("both", isBoth ? "1" : "0");
-            send(Message.create(Message.TYPE_INIT, params));
+            });*/
         }
 
         public void cancel(){
@@ -94,10 +93,6 @@ public class Client extends Pipe {
             connThread.cancel();
             connThread = null;
         }
-    }
-
-    public void setBoth(boolean both) {
-        this.isBoth = both;
     }
 
 }
