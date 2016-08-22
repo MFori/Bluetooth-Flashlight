@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
@@ -243,8 +244,26 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
 
     @Override
     public void onBackPressed() {
-        if (defaultLayout.getVisibility() != View.VISIBLE) {
-            mService.onCloseConnection();
+        if (controlLayout.getVisibility() == View.VISIBLE || controlMeLayout.getVisibility() == View.VISIBLE) {
+            AlertHelper.Create(this, "Disconnect?", "Bla bla bla...")
+                    .addButton("Yes", true, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            mService.onCloseConnection();
+                        }
+                    })
+                    .addButton("No", false, null)
+                    .show();
+        } else if(defaultLayout.getVisibility() == View.VISIBLE) {
+            AlertHelper.Create(this, "Close?", "Bla bla bla...")
+                    .addButton("Yes", true, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            finish();
+                        }
+                    })
+                    .addButton("No", false, null)
+                    .show();
         }
     }
 
