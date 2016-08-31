@@ -23,6 +23,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -32,13 +33,15 @@ import java.util.Set;
 public class MainActivity extends AppCompatActivity implements BTFinder, AdapterView.OnItemClickListener, ServiceCallBack {
 
     private static final int REQUEST_ENABLE_BT = 666;
+    private static final int REQUEST_MAKE_DISCOVERABLE_BT = 333;
     private BluetoothAdapter mBluetoothAdapter = null;
     private BTReceiver mReceiver = new BTReceiver(this);
-    private BTService mService;
+    private BTService mService = null;
 
     private final List<BluetoothDevice> devices = new ArrayList<>();
     private ArrayAdapter<String> adapter;
 
+    private TextView title;
     private ListView devicesList;
     private ProgressBar loading;
     private Button search;
@@ -53,25 +56,22 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter == null) {
-            AlertHelper.Create(this, "Error", "Sorry, your device doesn't support flash light!", "OK", true).show();
+            AlertHelper.Create(this, "Error", "Sorry, your device doesn't support bluetooth", "OK", true).show();
             return;
         }
 
         startBTService();
         registerReceiver();
-
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
         if (mBluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE)
             makeDeviceDiscoverable();
-        if (!mBluetoothAdapter.isEnabled()) {
-            Intent enaBt = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enaBt, REQUEST_ENABLE_BT);
-        } else {
+        else {
+            findPairedDevices();
             mBluetoothAdapter.startDiscovery();
             loading.setVisibility(View.VISIBLE);
+            search.setVisibility(View.INVISIBLE);
         }
 
-        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
-        findPairedDevices();
         devicesList.setAdapter(adapter);
         devicesList.setOnItemClickListener(this);
     }
@@ -126,9 +126,10 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         controlLayout = (LinearLayout) findViewById(R.id.control_layout);
         controlMeLayout = (LinearLayout) findViewById(R.id.control_me_layout);
 
+        title = (TextView) findViewById(R.id.main_title);
         devicesList = (ListView) findViewById(R.id.devices_list);
         loading = (ProgressBar) findViewById(R.id.loading);
-        loading.getIndeterminateDrawable().setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN);
+        loading.getIndeterminateDrawable().setColorFilter(getResources().getColor(R.color.colorAccent), PorterDuff.Mode.SRC_IN);
         search = (Button) findViewById(R.id.search);
         switchBoth = (SwitchCompat) findViewById(R.id.switchBoth);
     }
@@ -138,6 +139,7 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         connectLayout.setVisibility(View.VISIBLE);
         controlLayout.setVisibility(View.GONE);
         controlMeLayout.setVisibility(View.GONE);
+        title.setText(deviceName);
     }
 
     public void defaultLayout() {
@@ -149,6 +151,8 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         search.setVisibility(View.VISIBLE);
         loading.setVisibility(View.INVISIBLE);
         controlMeLayout.setVisibility(View.GONE);
+
+        title.setText("Choose device");
     }
 
     public void controlDeviceLayout(boolean hasFlash) {
@@ -156,6 +160,12 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         connectLayout.setVisibility(View.GONE);
         controlLayout.setVisibility(View.VISIBLE);
         controlMeLayout.setVisibility(View.GONE);
+
+        try {
+            title.setText(mService.getConnectedDevice().getName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         if (!hasFlash) {
             Toast.makeText(this, "Connected device doesn't has flash light", Toast.LENGTH_LONG).show();
@@ -167,6 +177,8 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         connectLayout.setVisibility(View.GONE);
         controlLayout.setVisibility(View.GONE);
         controlMeLayout.setVisibility(View.VISIBLE);
+
+        title.setText(mService.getConnectedDevice().getName());
     }
 
     /**
@@ -185,8 +197,8 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
      */
     private void startBTService() {
         Intent intent = new Intent(this, BTService.class);
+        if (!BTService.isActive) startService(intent);
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-        startService(intent);
     }
 
     /**
@@ -195,7 +207,7 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
     private void makeDeviceDiscoverable() {
         Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
         discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
-        startActivity(discoverableIntent);
+        startActivityForResult(discoverableIntent, REQUEST_MAKE_DISCOVERABLE_BT);
     }
 
     /**
@@ -213,7 +225,20 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
             BTService.BTBinder binder = (BTService.BTBinder) iBinder;
             mService = binder.getService();
             mService.setCallBacks(MainActivity.this);
-            mService.server();
+            //mService.server();
+            switch (mService.getState()) {
+                case BTService.STATE_CONTROL:
+                    controlDeviceLayout(false);
+                    break;
+                case BTService.STATE_CONTROL_ME:
+                    controlMeLayout();
+                    break;
+                case BTService.STATE_DEFAULT:
+                case BTService.STATE_DISABLE:
+                    mService.server();
+                    break;
+            }
+            Toast.makeText(MainActivity.this, String.valueOf(mService.getState()), Toast.LENGTH_LONG).show();
         }
 
         @Override
@@ -228,6 +253,14 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
         mService.client(device);
     }
 
+    public void oneApply(View view) {
+        switchBoth.setChecked(false);
+    }
+
+    public void twoApply(View view) {
+        switchBoth.setChecked(true);
+    }
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -239,13 +272,22 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
             } else {
                 Log.d("BTAdapter", "Cant enable BT");
             }
+        } else if (requestCode == REQUEST_MAKE_DISCOVERABLE_BT) {
+            if (mBluetoothAdapter.isEnabled()) {
+                findPairedDevices();
+            }
+            if (resultCode != Activity.RESULT_CANCELED) {
+                mService.server();
+                mBluetoothAdapter.startDiscovery();
+            }
         }
     }
 
     @Override
     public void onBackPressed() {
         if (controlLayout.getVisibility() == View.VISIBLE || controlMeLayout.getVisibility() == View.VISIBLE) {
-            AlertHelper.Create(this, "Disconnect?", "Bla bla bla...")
+            AlertHelper.Create(this, "Disconnect?", "Do you really want to disconnect from the '" +
+                    mService.getConnectedDevice().getName() + "' device?")
                     .addButton("Yes", true, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
@@ -254,11 +296,13 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
                     })
                     .addButton("No", false, null)
                     .show();
-        } else if(defaultLayout.getVisibility() == View.VISIBLE) {
-            AlertHelper.Create(this, "Close?", "Bla bla bla...")
+        } else if (defaultLayout.getVisibility() == View.VISIBLE) {
+            AlertHelper.Create(this, "Close?", "Do you really want to close app?")
                     .addButton("Yes", true, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
+                            BTService.canConnect = false;
+                            mService.finish();
                             finish();
                         }
                     })
@@ -269,7 +313,8 @@ public class MainActivity extends AppCompatActivity implements BTFinder, Adapter
 
     @Override
     public void onDestroy() {
-        mService.finish();
+        BTService.canConnect = false;
+        if (mService.isActive) unbindService(mConnection);
         if (mBluetoothAdapter != null) unregisterReceiver(mReceiver);
         super.onDestroy();
     }

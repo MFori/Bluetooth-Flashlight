@@ -96,4 +96,11 @@ public class FlashManager {
         return hasFlash;
     }
 
+    public void destroy() {
+        if(camera != null) {
+            camera.release();
+            camera = null;
+        }
+    }
+
 }

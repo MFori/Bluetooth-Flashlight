@@ -1,13 +1,11 @@
 package cz.martinforejt.bluetoothflashlight;
 
-import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
+
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -25,7 +23,12 @@ public class Client extends Pipe {
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     }
 
-    public void connect(BluetoothDevice device){
+    /**
+     * Connect to server device
+     *
+     * @param device BluetoothDevice - server
+     */
+    public void connect(BluetoothDevice device) {
         connThread = new ConnectThread(device);
         connThread.start();
     }
@@ -39,7 +42,7 @@ public class Client extends Pipe {
             mDevice = device;
 
             try {
-                 tmp = device.createRfcommSocketToServiceRecord(MY_UUID);
+                tmp = device.createRfcommSocketToServiceRecord(MY_UUID);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -47,22 +50,16 @@ public class Client extends Pipe {
             mSocket = tmp;
         }
 
-        public void run(){
+        public void run() {
             mBluetoothAdapter.cancelDiscovery();
 
             try {
                 mSocket.connect();
-            } catch (IOException connectException){
+            } catch (IOException connectException) {
                 connectListener.onFailure(mDevice);
-                /*((Activity) context).runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        connectListener.onFailure(mDevice);
-                    }
-                });*/
-                try{
+                try {
                     mSocket.close();
-                } catch (IOException closeException){
+                } catch (IOException closeException) {
                     closeException.printStackTrace();
                 }
                 return;
@@ -71,16 +68,10 @@ public class Client extends Pipe {
             connectedDevice = mSocket.getRemoteDevice();
             openPipe(mSocket);
             connectListener.onSuccess(mDevice);
-            /*((Activity) context).runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    connectListener.onSuccess(mDevice);
-                }
-            });*/
         }
 
-        public void cancel(){
-            try{
+        public void cancel() {
+            try {
                 mSocket.close();
             } catch (Exception e) {
                 e.printStackTrace();
@@ -88,8 +79,8 @@ public class Client extends Pipe {
         }
     }
 
-    public void stop(){
-        if(connThread!=null){
+    public void stop() {
+        if (connThread != null) {
             connThread.cancel();
             connThread = null;
         }

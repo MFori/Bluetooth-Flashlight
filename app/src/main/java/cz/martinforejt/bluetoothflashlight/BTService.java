@@ -1,5 +1,6 @@
 package cz.martinforejt.bluetoothflashlight;
 
+import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
@@ -7,6 +8,7 @@ import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -26,9 +28,19 @@ public class BTService extends Service implements ConnectListener {
     private FlashManager flashManager;
     private Handler handler = new Handler(Looper.getMainLooper());
 
+    public static boolean isActive = false;
+    public static boolean canConnect = true;
+
+    public static final int STATE_DISABLE = 0;
+    public static final int STATE_DEFAULT = 1;
+    public static final int STATE_CONTROL = 2;
+    public static final int STATE_CONTROL_ME = 3;
+    public int state = STATE_DISABLE;
+
     @Override
     public void onCreate() {
         flashManager = new FlashManager(this);
+        isActive = true;
     }
 
     public void setCallBacks(ServiceCallBack callBacks) {
@@ -44,6 +56,7 @@ public class BTService extends Service implements ConnectListener {
                 activity.defaultLayout();
             }
         });
+        state = STATE_DEFAULT;
         server();
     }
 
@@ -61,6 +74,8 @@ public class BTService extends Service implements ConnectListener {
         params.put("has_flash", flashManager.hasFlash() ? "1" : "0");
         server.send(Message.create(Message.TYPE_ACCEPT, params));
 
+        startForegroundNotify();
+
         if (both) {
             handler.post(new Runnable() {
                 @Override
@@ -68,6 +83,7 @@ public class BTService extends Service implements ConnectListener {
                     activity.controlDeviceLayout(hasFlash);
                 }
             });
+            state = STATE_CONTROL;
         } else {
             handler.post(new Runnable() {
                 @Override
@@ -75,33 +91,48 @@ public class BTService extends Service implements ConnectListener {
                     activity.controlMeLayout();
                 }
             });
+            state = STATE_CONTROL_ME;
         }
     }
 
     @Override
     public void onServerAccept(BluetoothDevice serverDevice, final boolean hasFlash) {
-        Log.d("Server:", "Accepted: " + serverDevice.getName());
-        Log.d("Server:", "flash: " + String.valueOf(hasFlash));
         handler.post(new Runnable() {
             @Override
             public void run() {
                 activity.controlDeviceLayout(hasFlash);
             }
         });
+        state = STATE_CONTROL;
+        startForegroundNotify();
+        Log.d("Server:", "Accepted: " + serverDevice.getName());
+        Log.d("Server:", "flash: " + String.valueOf(hasFlash));
     }
 
     @Override
     public void onCloseConnection() {
-        if (server != null) server.cancel();
-        else if (client != null) client.cancel();
+        if (server != null) {
+            server.stop();
+            server.cancel();
+            server = null;
+        } else if (client != null) {
+            client.stop();
+            client.cancel();
+            client = null;
+        }
         flashManager.flash(false);
         server();
+        stopForeground(true);
         handler.post(new Runnable() {
             @Override
             public void run() {
                 activity.defaultLayout();
             }
         });
+        state = STATE_DEFAULT;
+        if (!canConnect) {
+            stopSelf();
+        }
     }
 
     @Override
@@ -141,6 +172,7 @@ public class BTService extends Service implements ConnectListener {
 
         if (server != null) {
             server.stop();
+            server.cancel();
             server = null;
         }
     }
@@ -163,13 +195,47 @@ public class BTService extends Service implements ConnectListener {
         return server;
     }
 
+    public int getState() {
+        return state;
+    }
+
+    private void startForegroundNotify() {
+        String name = "";
+        try {
+            if (server != null) name = server.getConnectedDevice().getName();
+            else if (client != null) name = client.getConnectedDevice().getName();
+        } catch (NullPointerException e) {
+            name = "BT device";
+        }
+
+        Intent intent = new Intent(BTService.this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(BTService.this, 0, intent, 0);
+
+        NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(this)
+                .setContentTitle("Bluetooth Flashlight")
+                .setContentText(name)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setOngoing(true)
+                .setContentIntent(pendingIntent);
+
+        startForeground(100, mBuilder.build());
+    }
+
+    public BluetoothDevice getConnectedDevice() {
+        if (server != null) return server.getConnectedDevice();
+        else if (client != null) return client.getConnectedDevice();
+
+        return null;
+    }
+
     /**
      * Stop bt sockets
      */
     public void finish() {
-        if (server != null) server.cancel();
-        else if (client != null) client.cancel();
-        flashManager.flash(false);
+        //if (server != null) server.cancel();
+        //else if (client != null) client.cancel();
+        //flashManager.flash(false);
+        stopSelf();
     }
 
     public class BTBinder extends Binder {
@@ -188,4 +254,17 @@ public class BTService extends Service implements ConnectListener {
         return mBinder;
     }
 
+    @Override
+    public void onDestroy() {
+        if (client != null) {
+            client.cancel();
+            client.stop();
+        } else if (server != null) {
+            server.cancel();
+            server.stop();
+        }
+        flashManager.destroy();
+        isActive = false;
+        Log.d("service", "destroy");
+    }
 }

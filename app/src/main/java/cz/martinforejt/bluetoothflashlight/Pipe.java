@@ -1,6 +1,5 @@
 package cz.martinforejt.bluetoothflashlight;
 
-import android.app.Activity;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
@@ -37,7 +36,6 @@ abstract class Pipe {
         if (connectedThread != null) connectedThread.cancel();
         connectedThread = new ConnectedThread(socket);
         connectedThread.start();
-        //send("");
     }
 
     /**
@@ -57,7 +55,7 @@ abstract class Pipe {
     }
 
     public void cancel() {
-        if(connectedThread != null) {
+        if (connectedThread != null) {
             send(Message.create(Message.TYPE_END));
             connectedThread.cancel();
         }
@@ -88,6 +86,13 @@ abstract class Pipe {
             byte[] buffer = new byte[1024];
             int bytes;
 
+            // make time to keep connection
+            try {
+                Thread.sleep(500);
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+
             while (true) {
                 try {
                     bytes = mInStream.read(buffer);
@@ -116,6 +121,10 @@ abstract class Pipe {
         }
     }
 
+    public BluetoothDevice getConnectedDevice() {
+        return connectedDevice;
+    }
+
     private void consumeMessage(String message) {
         try {
             JSONObject json = new JSONObject(message);
@@ -126,12 +135,6 @@ abstract class Pipe {
                     break;
                 case Message.TYPE_END:
                     connectListener.onCloseConnection();
-                    /*((Activity) context).runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            connectListener.onCloseConnection();
-                        }
-                    });*/
                     break;
                 case Message.TYPE_LIGHT:
                     msgLight(json);
@@ -154,16 +157,6 @@ abstract class Pipe {
         } catch (JSONException e) {
             connectListener.onClientRequest(connectedDevice, false, true);
         }
-        /*((Activity) context).runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    connectListener.onClientRequest(connectedDevice, msg.get("both").equals("1"), msg.get("has_flash").equals("1"));
-                } catch (JSONException e) {
-                    connectListener.onClientRequest(connectedDevice, false, true);
-                }
-            }
-        });*/
     }
 
     /**
@@ -175,16 +168,6 @@ abstract class Pipe {
         } catch (JSONException e) {
             connectListener.onServerAccept(connectedDevice, true);
         }
-        /*((Activity) context).runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    connectListener.onServerAccept(connectedDevice, msg.get("has_flash").equals("1"));
-                } catch (JSONException e) {
-                    connectListener.onServerAccept(connectedDevice, true);
-                }
-            }
-        });*/
     }
 
     /**
@@ -196,16 +179,6 @@ abstract class Pipe {
         } catch (JSONException e) {
             connectListener.onLight(Message.LIGHT_01);
         }
-        /*((Activity) context).runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    connectListener.onLight(msg.getInt("light_type"));
-                } catch (JSONException e) {
-                    connectListener.onLight(Message.LIGHT_01);
-                }
-            }
-        });*/
     }
 
 }

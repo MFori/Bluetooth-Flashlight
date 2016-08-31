@@ -11,16 +11,18 @@
 
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="100dp"
         android:background="@color/colorPrimary"
-        android:padding="10dp">
+        android:padding="25dp">
 
         <TextView
+            android:id="@+id/main_title"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
+            android:textColor="#212121"
             android:text="Choose device"
-            android:textSize="40sp" />
+            android:textSize="35sp" />
 
     </FrameLayout>
 
@@ -28,13 +30,48 @@
         android:id="@+id/default_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:visibility="visible"
         android:orientation="vertical">
 
-        <android.support.v7.widget.SwitchCompat
-            android:layout_width="wrap_content"
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#BDBDBD"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:id="@+id/switchBoth"
-            android:layout_gravity="center" />
+            android:orientation="horizontal"
+            android:padding="3dp"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="oneApply"
+                android:text="One-way"/>
+
+            <android.support.v7.widget.SwitchCompat
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/switchBoth"
+                android:layout_gravity="center"
+                android:paddingLeft="30dp"
+                android:paddingRight="30dp"
+                android:gravity="center"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="twoApply"
+                android:text="Two-way"/>
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#BDBDBD"/>
 
         <FrameLayout
             android:layout_width="match_parent"
@@ -48,24 +85,30 @@
 
         </FrameLayout>
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#BDBDBD"/>
+
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="10dp">
+            android:padding="4dp">
 
             <Button
                 android:id="@+id/search"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_centerInParent="true"
+                android:theme="@style/MyButton"
                 android:onClick="search"
-                android:text="Search"
-                android:visibility="invisible" />
+                android:text="Search" />
 
             <ProgressBar
                 android:id="@+id/loading"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:visibility="invisible"
                 android:layout_centerInParent="true" />
 
         </RelativeLayout>
@@ -76,12 +119,20 @@
         android:id="@+id/connect_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
         android:visibility="gone">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:paddingBottom="50dp"
+            android:textSize="35sp"
             android:text="Connecting" />
+
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
 
     </LinearLayout>
 
